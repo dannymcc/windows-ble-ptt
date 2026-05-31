@@ -86,21 +86,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _client.DiscoveredListCleared += () => RunOnUi(() => Discovered.Clear());
         _client.StateChanged += OnStateChanged;
         _client.PressedChanged += pressed => RunOnUi(() => IsTransmitting = pressed);
+        _client.ScanningChanged += scanning => RunOnUi(() => IsScanning = scanning);
     }
 
-    public void StartScan()
-    {
-        _client.StartScan();
-        IsScanning = true;
-        StatusHeadline = "Scanning…";
-        StatusSubline = "Press your BLE PTT button to wake it";
-    }
+    public void StartScan() => _client.StartScan();
 
-    public void StopScan()
-    {
-        _client.StopScan();
-        IsScanning = false;
-    }
+    public void StopScan() => _client.StopScan();
 
     public async Task PairAsync(DiscoveredViewModel device)
     {
@@ -136,37 +127,27 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     StatusSubline = "Tap Scan to find your BLE PTT button";
                     HasConnection = false;
                     ConnectedName = null;
-                    IsScanning = false;
-                    break;
-                case ConnectionState.ScanningState:
-                    StatusHeadline = "Scanning…";
-                    StatusSubline = "Press your BLE PTT button to wake it";
-                    IsScanning = true;
                     break;
                 case ConnectionState.ConnectingState:
                     StatusHeadline = "Connecting…";
                     StatusSubline = string.Empty;
                     HasConnection = false;
-                    IsScanning = false;
                     break;
                 case ConnectionState.ConnectedState connected:
                     StatusHeadline = IsTransmitting ? "Transmitting" : "Idle";
                     StatusSubline = $"Connected to {connected.Name ?? FormatAddress(connected.Address)}";
                     HasConnection = true;
                     ConnectedName = connected.Name ?? FormatAddress(connected.Address);
-                    IsScanning = false;
                     break;
                 case ConnectionState.DisconnectedState disc:
                     StatusHeadline = "Disconnected";
                     StatusSubline = $"Waiting for next press to reconnect · {disc.Reason}";
                     HasConnection = false;
-                    IsScanning = false;
                     break;
                 case ConnectionState.ErrorState err:
                     StatusHeadline = "Error";
                     StatusSubline = err.Message;
                     HasConnection = false;
-                    IsScanning = false;
                     break;
             }
         });

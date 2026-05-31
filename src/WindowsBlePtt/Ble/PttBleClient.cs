@@ -19,6 +19,7 @@ public sealed class PttBleClient : IAsyncDisposable
 
     public event Action<ConnectionState>? StateChanged;
     public event Action<bool>? PressedChanged;
+    public event Action<bool>? ScanningChanged;
     public event Action<Discovered>? DeviceDiscovered;
     public event Action? DiscoveredListCleared;
 
@@ -35,6 +36,7 @@ public sealed class PttBleClient : IAsyncDisposable
     public ulong CurrentTarget => _targetAddress;
     public ConnectionState State { get; private set; } = ConnectionState.Idle;
     public bool Pressed { get; private set; }
+    public bool IsScanning { get; private set; }
 
     public void StartScan()
     {
@@ -42,7 +44,6 @@ public sealed class PttBleClient : IAsyncDisposable
         _seen.Clear();
         DiscoveredListCleared?.Invoke();
         _scanStartedAt = DateTimeOffset.UtcNow;
-        UpdateState(ConnectionState.Scanning);
 
         _scanWatcher = new BluetoothLEAdvertisementWatcher
         {
@@ -51,18 +52,30 @@ public sealed class PttBleClient : IAsyncDisposable
         _scanWatcher.Received += OnAdvertReceivedForScan;
         _scanWatcher.Stopped += OnScanStopped;
         _scanWatcher.Start();
+        SetScanning(true);
     }
 
     public void StopScan()
     {
-        if (_scanWatcher is null) return;
+        if (_scanWatcher is null)
+        {
+            SetScanning(false);
+            return;
+        }
         _scanWatcher.Received -= OnAdvertReceivedForScan;
         _scanWatcher.Stopped -= OnScanStopped;
         try { _scanWatcher.Stop(); } catch { }
         _scanWatcher = null;
         _seen.Clear();
         DiscoveredListCleared?.Invoke();
-        if (State is ConnectionState.ScanningState) UpdateState(ConnectionState.Idle);
+        SetScanning(false);
+    }
+
+    private void SetScanning(bool scanning)
+    {
+        if (IsScanning == scanning) return;
+        IsScanning = scanning;
+        ScanningChanged?.Invoke(scanning);
     }
 
     private void OnAdvertReceivedForScan(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
@@ -281,14 +294,12 @@ public sealed record Discovered(ulong Address, string? Name, short Rssi);
 public abstract record ConnectionState
 {
     public sealed record IdleState : ConnectionState;
-    public sealed record ScanningState : ConnectionState;
     public sealed record ConnectingState : ConnectionState;
     public sealed record ConnectedState(ulong Address, string? Name) : ConnectionState;
     public sealed record DisconnectedState(string Reason) : ConnectionState;
     public sealed record ErrorState(string Message) : ConnectionState;
 
     public static ConnectionState Idle => new IdleState();
-    public static ConnectionState Scanning => new ScanningState();
     public static ConnectionState Connecting => new ConnectingState();
     public static ConnectionState Connected(ulong address, string? name) => new ConnectedState(address, name);
     public static ConnectionState Disconnected(string reason) => new DisconnectedState(reason);
