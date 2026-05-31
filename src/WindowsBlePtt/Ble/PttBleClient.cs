@@ -62,7 +62,7 @@ public sealed class PttBleClient : IAsyncDisposable
         _scanWatcher = null;
         _seen.Clear();
         DiscoveredListCleared?.Invoke();
-        if (State is ConnectionState.Scanning) UpdateState(ConnectionState.Idle);
+        if (State is ConnectionState.ScanningState) UpdateState(ConnectionState.Idle);
     }
 
     private void OnAdvertReceivedForScan(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
